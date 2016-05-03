@@ -1,0 +1,1 @@
+swig -c++ -python -o UMA_ACC_wrap.cpp UMA_ACC.i
