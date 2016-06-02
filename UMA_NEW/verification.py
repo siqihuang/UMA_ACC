@@ -155,6 +155,7 @@ def start_experiment(stdscr):
         curses.doupdate()
     #print SNIFFY._SIZE
     acc.initData(SNIFFY._SIZE,THRESHOLD,SNIFFY._CONTEXT.keys(),SNIFFY._CONTEXT.values())
+    
 
     # SETTING UP DRY RUN
     count=-(2*(X_START+Y_START)+DRY_RUN_CYCLES*(4*X_BOUND+4*Y_BOUND))

@@ -497,6 +497,10 @@ class Snapshot(object):
             # record the corresponding delayed conjunctions in the mask
             map(mask.set,[self._CONTEXT[i,j] for i,j in relevant_pairs],[True for i,j in relevant_pairs])
 
+	    #acc.copyData(mask._VAL.tolist(),self._CURRENT._VAL.tolist())
+	    #acc.propagate_GPU()
+	    #return Signal(np.array(acc.getLoad()))
+
             return self.propagate(mask,self._CURRENT)
 
 
@@ -512,7 +516,7 @@ class Agent(Snapshot):
             	  self._OBSERVE.set(ind,self._SENSORS[ind].val()[0])
 	    acc.setSignal(self._OBSERVE._VAL.tolist())
 	    acc.update_state_GPU(mode=='decide')
-	    self._CURRENT=Signal(np.array(acc.getLoad()))
+	    self._CURRENT=Signal(np.array(acc.getCurrent()))
 	    self._DIR=np.array(acc.getDir())
 
             # translate indices into names for output to experiment
@@ -526,10 +530,10 @@ class Agent(Snapshot):
                         raise('Illegal input for execution by '+str(self._NAME)+' --- Aborting!\n\n')
             elif mode=='decide':
                   if param in self._EVALS:
-                        responses=map(self.halucinate,self._GENERALIZED_ACTIONS)
-			#responses=np.array(acc.halucinate_all(self._GENERALIZED_ACTIONS))
-			#for actionlist in self._GENERALIZED_ACTIONS:
-			      #responses.append(Signal(np.array(acc.halucinate(actionlist))))
+                        #responses=map(self.halucinate,self._GENERALIZED_ACTIONS)
+			responses=[]
+			for actionlist in self._GENERALIZED_ACTIONS:
+			      responses.append(Signal(np.array(acc.halucinate(actionlist))))
             
                         # compute the response (if any) to the motivational signal
                         best_responses=[]

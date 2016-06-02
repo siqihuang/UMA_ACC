@@ -9,6 +9,7 @@ static double *Gweights,*dev_weights,*Gthresholds,*dev_thresholds;
 static bool *Gobserve,*dev_observe;
 static bool *Gdfs,*dev_dfs;
 static bool *Gsignal,*dev_signal,*Gload,*dev_load;
+static bool *Gcurrent,*dev_current;
 static bool *Gmask,*dev_mask;//bool value for mask signal in halucinate
 static int *dev_actionlist;//action list in halucinate
 static int *tmp_signal,*tmp_load;//tmp variable for dfs on GPU
@@ -179,6 +180,15 @@ __global__ void mask_kernel(bool *mask,int *actionlist,int size){
 	}
 }
 
+void Snapshot::copyData(vector<bool> signal,vector<bool> load){
+	for(int i=0;i<size;++i){
+		Gsignal[i]=signal[i];
+		Gload[i]=load[i];
+	}
+	cudaMemcpy(dev_signal,Gsignal,size*sizeof(bool),cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_load,Gload,size*sizeof(bool),cudaMemcpyHostToDevice);
+}
+
 //before invoke this function make sure dev_load and dev_signal have correct data
 //the computed data will be in dev_load
 void Snapshot::propagate_GPU(){
@@ -215,7 +225,7 @@ void Snapshot::setSignal(vector<bool> observe){
 	cudaMemcpy(dev_observe,Gobserve,size*sizeof(bool),cudaMemcpyHostToDevice);
 }
 
-vector<vector<double>> Snapshot::update_weights_GPU(vector<vector<double>> weights){
+/*vector<vector<double>> Snapshot::update_weights_GPU(vector<vector<double>> weights){
 	dim3 dimGrid((size+15)/16,(size+15)/16);
 	dim3 dimBlock(16,16);
 	for(int i=0;i<size;++i){
@@ -232,7 +242,7 @@ vector<vector<double>> Snapshot::update_weights_GPU(vector<vector<double>> weigh
 		}
 	}
 	return weights;
-}
+}*/
 
 void Snapshot::update_state_GPU(bool mode){//true for decide
 	dim3 dimGrid((size+15)/16,(size+15)/16);
@@ -249,6 +259,8 @@ void Snapshot::update_state_GPU(bool mode){//true for decide
 	cudaMemcpy(dev_signal,dev_observe,size*sizeof(bool),cudaMemcpyDeviceToDevice);
 	cudaMemset(dev_load,false,size*sizeof(bool));
 	propagate_GPU();
+	cudaMemcpy(Gcurrent,dev_load,size*sizeof(bool),cudaMemcpyDeviceToHost);
+	cudaMemcpy(dev_current,dev_load,size*sizeof(bool),cudaMemcpyDeviceToDevice);
 	cudaMemcpy(Gdir,dev_dir,size*size*sizeof(bool),cudaMemcpyDeviceToHost);
 }
 
@@ -258,8 +270,8 @@ void Snapshot::halucinate_GPU(vector<int> actions_list){
 	vector<int> v;
 	for(int i=0;i<actions_list.size();++i){
 		for(int j=0;j<size;++j){
-			if(context.find(pair<int,int>(i,j))!=context.end()&&Gload[j]){
-				v.push_back(context[pair<int,int>(i,j)]);
+			if(context.find(pair<int,int>(actions_list[i],j))!=context.end()&&Gcurrent[j]){
+				v.push_back(context[pair<int,int>(actions_list[i],j)]);
 			}
 		}
 	}
@@ -273,7 +285,7 @@ void Snapshot::halucinate_GPU(vector<int> actions_list){
 	cudaMemcpy(dev_mask,Gmask,size*sizeof(bool),cudaMemcpyHostToDevice);
 	//copy data
 	cudaMemcpy(dev_signal,dev_mask,size*sizeof(bool),cudaMemcpyDeviceToDevice);
-	//dev_load already there
+	cudaMemcpy(dev_load,dev_current,size*sizeof(bool),cudaMemcpyDeviceToDevice);
 	propagate_GPU();
 	//return self.propagate(mask,self._CURRENT)
 }
@@ -292,6 +304,7 @@ void Snapshot::initData(int size,double threshold,vector<vector<int> > context_k
 	tmp_load=new int[size];
 	dfs_flag=new bool[1];
 	Gmask=new bool[size];
+	Gcurrent=new bool[size];
 	
 	cudaMalloc(&dev_dir,size*size*sizeof(bool));
 	cudaMalloc(&dev_thresholds,size*size*sizeof(double));
@@ -305,6 +318,7 @@ void Snapshot::initData(int size,double threshold,vector<vector<int> > context_k
 	cudaMalloc(&dev_dfs_flag,sizeof(bool));
 
 	cudaMalloc(&dev_mask,size*sizeof(bool));
+	cudaMalloc(&dev_current,size*sizeof(bool));
 
 	for(int i=0;i<size;++i){
 		for(int j=0;j<size;++j){
@@ -323,6 +337,14 @@ void Snapshot::initData(int size,double threshold,vector<vector<int> > context_k
 		context[pair<int,int>(context_key[i][0],context_key[i][1])]=context_value[i];
 	}
 	cout<<"succeed"<<endl;
+}
+
+vector<bool> Snapshot::getCurrent(){
+	vector<bool> result;
+	for(int i=0;i<size;++i){
+		result.push_back(Gcurrent[i]);
+	}
+	return result;
 }
 
 vector<bool> Snapshot::getLoad(){

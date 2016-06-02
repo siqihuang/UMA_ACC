@@ -18,10 +18,11 @@ public:
 	void halucinate_GPU(vector<int> actions_list);
 	vector<bool> initMask(vector<int> actions_list);
 	void setSignal(vector<bool> observe);
+	vector<bool> getCurrent();
 	vector<bool> getLoad();
 	vector<vector<bool>> getDir();
 
-	vector<vector<double>> update_weights_GPU(vector<vector<double>> weights);
+	void copyData(vector<bool> signal,vector<bool> load);
 
 	//enum Type{DECIDE,EXECUTE};
 
