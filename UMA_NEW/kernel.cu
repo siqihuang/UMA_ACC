@@ -215,12 +215,31 @@ void Snapshot::setSignal(vector<bool> observe){
 	cudaMemcpy(dev_observe,Gobserve,size*sizeof(bool),cudaMemcpyHostToDevice);
 }
 
+vector<vector<double>> Snapshot::update_weights_GPU(vector<vector<double>> weights){
+	dim3 dimGrid((size+15)/16,(size+15)/16);
+	dim3 dimBlock(16,16);
+	for(int i=0;i<size;++i){
+		for(int j=0;j<size;++j){
+			Gweights[i*size+j]=weights[i][j];
+		}
+	}
+	cudaMemcpy(dev_weights,Gweights,size*size*sizeof(double),cudaMemcpyHostToDevice);
+	update_weights_kernel<<<dimGrid,dimBlock>>>(dev_weights,dev_observe,size);
+	cudaMemcpy(Gweights,dev_weights,size*size*sizeof(double),cudaMemcpyDeviceToHost);
+	for(int i=0;i<size;++i){
+		for(int j=0;j<size;++j){
+			weights[i][j]=Gweights[i*size+j];
+		}
+	}
+	return weights;
+}
+
 void Snapshot::update_state_GPU(bool mode){//true for decide
 	dim3 dimGrid((size+15)/16,(size+15)/16);
 	dim3 dimBlock(16,16);
 	update_weights_kernel<<<dimGrid,dimBlock>>>(dev_weights,dev_observe,size);
 	//update_weight
-
+	
 	if(mode){
 		dim3 dimGrid1((size/2+15)/16,(size/2+15)/16);
 		dim3 dimBlock1(16,16);
@@ -230,6 +249,7 @@ void Snapshot::update_state_GPU(bool mode){//true for decide
 	cudaMemcpy(dev_signal,dev_observe,size*sizeof(bool),cudaMemcpyDeviceToDevice);
 	cudaMemset(dev_load,false,size*sizeof(bool));
 	propagate_GPU();
+	cudaMemcpy(Gdir,dev_dir,size*size*sizeof(bool),cudaMemcpyDeviceToHost);
 }
 
 void Snapshot::halucinate_GPU(vector<int> actions_list){
@@ -258,7 +278,7 @@ void Snapshot::halucinate_GPU(vector<int> actions_list){
 	//return self.propagate(mask,self._CURRENT)
 }
 
-void Snapshot::initData(int size,double threshold,vector<vector<int>> context_key,vector<int> context_value){
+void Snapshot::initData(int size,double threshold,vector<vector<int> > context_key,vector<int> context_value){
 	this->size=size;
 	this->threshold=threshold;
 	Gdir=new bool[size*size];
@@ -289,8 +309,14 @@ void Snapshot::initData(int size,double threshold,vector<vector<int>> context_ke
 	for(int i=0;i<size;++i){
 		for(int j=0;j<size;++j){
 			Gthresholds[i*size+j]=threshold;
+			Gweights[i*size+j]=0.0;
+			Gdir[i*size+j]=false;
 		}
 	}
+
+	cudaMemcpy(dev_thresholds,Gthresholds,size*size*sizeof(double),cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_weights,Gweights,size*size*sizeof(double),cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_dir,Gdir,size*size*sizeof(bool),cudaMemcpyHostToDevice);
 	//init threshold
 
 	for(int i=0;i<context_key.size();++i){
@@ -303,6 +329,18 @@ vector<bool> Snapshot::getLoad(){
 	vector<bool> result;
 	for(int i=0;i<size;++i){
 		result.push_back(Gload[i]);
+	}
+	return result;
+}
+
+vector<vector<bool>> Snapshot::getDir(){
+	vector<vector<bool>> result;
+	for(int i=0;i<size;++i){
+		vector<bool> tmp;
+		for(int j=0;j<size;++j){
+			tmp.push_back(Gdir[i*size+j]);
+		}
+		result.push_back(tmp);
 	}
 	return result;
 }

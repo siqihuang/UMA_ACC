@@ -153,7 +153,7 @@ def start_experiment(stdscr):
         WIN.overlay(stdscr)
         WIN.noutrefresh()
         curses.doupdate()
-    
+    #print SNIFFY._SIZE
     acc.initData(SNIFFY._SIZE,THRESHOLD,SNIFFY._CONTEXT.keys(),SNIFFY._CONTEXT.values())
 
     # SETTING UP DRY RUN
@@ -225,6 +225,7 @@ def start_experiment(stdscr):
         print_state(count,message)
         message='RUNNING: '+EX.tick('decide','to_playground')
         count+=1
+    #print SNIFFY._SIZE
     
 curses.wrapper(start_experiment)
 exit(0)

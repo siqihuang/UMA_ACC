@@ -8,7 +8,7 @@ public:
 	Agent();
 	Agent(double threshold);
 	~Agent();
-	vector<vector<bool>> halucinate_all(vector<vector<int>> generalized_actions);
+	vector<vector<bool> > halucinate_all(vector<vector<int> > generalized_actions);
 	vector<bool> halucinate(vector<int> action_list);
 };
 

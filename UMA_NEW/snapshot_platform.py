@@ -350,6 +350,8 @@ class Snapshot(object):
                   self._OBSERVE.set(ind,self._SENSORS[ind].val()[0])
             ### update the weights and poc graph
             self.update_weights()
+	    #acc.setSignal(self._OBSERVE._VAL.tolist())
+	    #self._WEIGHTS=np.array(acc.update_weights_GPU(self._WEIGHTS.tolist()))
             if mode!='execute':
                   self.orient_all()
             ### propagate raw observation to obtain self._CURRENT
@@ -505,12 +507,14 @@ class Agent(Snapshot):
       def decide(self,mode,param):
             ### update the snapshot
 
+	    #self.update_state(mode)
 	    for ind in xrange(self._SIZE):
             	  self._OBSERVE.set(ind,self._SENSORS[ind].val()[0])
 	    acc.setSignal(self._OBSERVE._VAL.tolist())
 	    acc.update_state_GPU(mode=='decide')
+	    self._CURRENT=Signal(np.array(acc.getLoad()))
+	    self._DIR=np.array(acc.getDir())
 
-            #self.update_state(mode)
             # translate indices into names for output to experiment
             translate=lambda index_list: [self._SENSORS[ind]._NAME for ind in index_list]
 	    
@@ -522,11 +526,10 @@ class Agent(Snapshot):
                         raise('Illegal input for execution by '+str(self._NAME)+' --- Aborting!\n\n')
             elif mode=='decide':
                   if param in self._EVALS:
-                        #responses=map(self.halucinate,self._GENERALIZED_ACTIONS)
+                        responses=map(self.halucinate,self._GENERALIZED_ACTIONS)
 			#responses=np.array(acc.halucinate_all(self._GENERALIZED_ACTIONS))
-			responses=[]
-			for actionlist in self._GENERALIZED_ACTIONS:
-			      responses.append(Signal(np.array(acc.halucinate(actionlist))))
+			#for actionlist in self._GENERALIZED_ACTIONS:
+			      #responses.append(Signal(np.array(acc.halucinate(actionlist))))
             
                         # compute the response (if any) to the motivational signal
                         best_responses=[]
