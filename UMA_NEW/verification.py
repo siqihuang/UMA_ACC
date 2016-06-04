@@ -3,7 +3,7 @@ import numpy as np
 import curses
 
 
-from snapshot_platform import *
+from snapshot_platform_new import *
 
 def start_experiment(stdscr):
     ### log and output files
@@ -154,7 +154,9 @@ def start_experiment(stdscr):
         WIN.noutrefresh()
         curses.doupdate()
     #print SNIFFY._SIZE
-    acc.initData(SNIFFY._SIZE,THRESHOLD,SNIFFY._CONTEXT.keys(),SNIFFY._CONTEXT.values())
+    
+    tmp=[sen._NAME for sen in SNIFFY._SENSORS]
+    acc.initData(SNIFFY._NAME,SNIFFY._SIZE,THRESHOLD,SNIFFY._CONTEXT.keys(),SNIFFY._CONTEXT.values(),tmp,SNIFFY._EVALS,SNIFFY._GENERALIZED_ACTIONS)
     
 
     # SETTING UP DRY RUN

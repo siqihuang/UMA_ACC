@@ -258,7 +258,21 @@ class Experiment(object):
       def tick(self,mode,param):
             decision=[]
             for agent in self._AGENTS:
-                  dec,message=agent.decide(mode,param)
+                  #dec,message=agent.decide(mode,param)
+
+		  for ind in xrange(agent._SIZE):
+            	        agent._OBSERVE.set(ind,agent._SENSORS[ind].val()[0])
+		  acc.setSignal(agent._OBSERVE._VAL.tolist())
+
+		  if type(param) is list:
+			acc.decide(mode,param,'')
+		  else:
+			acc.decide(mode,[],param)
+		  dec=acc.getDecision()
+		  message=acc.getMessage()
+		  #print dec,message
+		  #exit()
+
                   decision.extend(dec)
 
             self.update_state([(meas._NAME in decision) for meas in self._CONTROL])
@@ -512,12 +526,13 @@ class Agent(Snapshot):
             ### update the snapshot
 
 	    #self.update_state(mode)
+	    
 	    for ind in xrange(self._SIZE):
             	  self._OBSERVE.set(ind,self._SENSORS[ind].val()[0])
 	    acc.setSignal(self._OBSERVE._VAL.tolist())
 	    acc.update_state_GPU(mode=='decide')
 	    self._CURRENT=Signal(np.array(acc.getCurrent()))
-	    self._DIR=np.array(acc.getDir())
+	    #self._DIR=np.array(acc.getDir())
 
             # translate indices into names for output to experiment
             translate=lambda index_list: [self._SENSORS[ind]._NAME for ind in index_list]
@@ -541,6 +556,7 @@ class Agent(Snapshot):
                         for ind in xrange(len(responses)):
                               if responses[ind].value(self._NAME_TO_NUM[param]):
                                     best_responses.append(ind)
+
                                     
                         if best_responses!=[]:
                               decision=translate(self._GENERALIZED_ACTIONS[best_responses[rand(len(best_responses))]])

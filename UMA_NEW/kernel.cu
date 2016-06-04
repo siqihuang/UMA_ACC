@@ -290,9 +290,19 @@ void Snapshot::halucinate_GPU(vector<int> actions_list){
 	//return self.propagate(mask,self._CURRENT)
 }
 
-void Snapshot::initData(int size,double threshold,vector<vector<int> > context_key,vector<int> context_value){
+void Snapshot::initData(string name,int size,double threshold,vector<vector<int> > context_key,vector<int> context_value,
+		vector<string> sensors_names,vector<string> evals_names,vector<vector<int>> generalized_actions){
+	this->name=name;
 	this->size=size;
 	this->threshold=threshold;
+	this->sensors_names=sensors_names;
+	this->evals_names=evals_names;
+	this->generalized_actions=generalized_actions;
+	srand (time(NULL));
+	for(int i=0;i<size;++i){
+		name_to_num[sensors_names[i]]=i;
+	}
+	
 	Gdir=new bool[size*size];
 	Gweights=new double[size*size];
 	Gthresholds=new double[size*size];
