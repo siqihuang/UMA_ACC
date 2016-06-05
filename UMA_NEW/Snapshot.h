@@ -13,7 +13,8 @@ public:
 	Snapshot(double threshold);
 	virtual ~Snapshot();
 
-	void initData(string name,int size,double threshold,vector<vector<int> > context_key,vector<int> context_value,vector<string> sensors_names,vector<string> evals_names,vector<vector<int>> generalized_actions);
+	void initData(string name,int size,double threshold,vector<vector<int> > context_key,vector<int> context_value,vector<string> sensors_names,vector<string> evals_names,vector<vector<int> > generalized_actions);
+	void freeData();
 	void update_state_GPU(bool mode);
 	void propagate_GPU();
 	void halucinate_GPU(vector<int> actions_list);
@@ -21,21 +22,15 @@ public:
 	void setSignal(vector<bool> observe);
 	vector<bool> getCurrent();
 	vector<bool> getLoad();
-	vector<vector<bool>> getDir();
-
-	vector<vector<bool> > halucinate_all(vector<vector<int> > generalized_actions);
+	vector<vector<bool> > getDir();
 	vector<bool> halucinate(vector<int> action_list);
-
-	void copyData(vector<bool> signal,vector<bool> load);
-
-	//enum Type{DECIDE,EXECUTE};
 
 protected:
 	int size;
 	double threshold;
 	std::map<pair<int,int>,int> context;
 	vector<string> sensors_names,evals_names;
-	vector<vector<int>> generalized_actions;
+	vector<vector<int> > generalized_actions;
 	string name;
 	std::map<string,int> name_to_num;
 };

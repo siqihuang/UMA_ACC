@@ -10,19 +10,7 @@ static int randInt(int n){
 	return rand()%n;
 }
 
-int choice(vector<double> p){
-	double r=(double)rand()/(RAND_MAX);
-	double sum=0.0;
-	for(int i=0;i<p.size();++i) sum+=p[i];
-	for(int i=0;i<p.size();++i) p[i]/=sum;
-	for(int i=0;i<p.size();++i){
-		if(p[i]>r) return i;
-		r-=p[i];
-	}
-	return p.size()-1;
-}
-
-void Agent::decide(string mode,vector<int> param1,string param2){
+void Agent::decide(string mode,vector<int> param1,string param2){//the decide function
 	update_state_GPU(mode=="decide");
 	if(mode=="execute"){
 		if(checkParam(param1)){
@@ -40,7 +28,7 @@ void Agent::decide(string mode,vector<int> param1,string param2){
 	}
 	else if(mode=="decide"){
 		if(checkParam(param2)){
-			vector<vector<bool>> responses;
+			vector<vector<bool> > responses;
 			for(int i=0;i<generalized_actions.size();++i){
 				responses.push_back(halucinate(generalized_actions[i]));
 			}

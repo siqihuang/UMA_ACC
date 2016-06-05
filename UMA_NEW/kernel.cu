@@ -4,18 +4,47 @@
 #include "Snapshot.h"
 #include "Agent.h"
 
-static bool *Gdir=NULL,*dev_dir;
-static double *Gweights,*dev_weights,*Gthresholds,*dev_thresholds;
-static bool *Gobserve,*dev_observe;
-static bool *Gdfs,*dev_dfs;
-static bool *Gsignal,*dev_signal,*Gload,*dev_load;
-static bool *Gcurrent,*dev_current;
+//those static values are CPU and GPU counterpart variables. usually in GPU variable start with dev_(device)
+static bool *Gdir=NULL,*dev_dir;//dir is DIR in python
+static double *Gweights,*dev_weights,*Gthresholds,*dev_thresholds;//weight and threshold in python
+static bool *Gobserve,*dev_observe;//observe in python
+static bool *Gdfs,*dev_dfs;//this variable is a bool value used in dfs function
+static bool *Gsignal,*dev_signal,*Gload,*dev_load;//signal and load variable in propagate
+static bool *Gcurrent,*dev_current;//current in python
 static bool *Gmask,*dev_mask;//bool value for mask signal in halucinate
-static int *dev_actionlist;//action list in halucinate
-static int *tmp_signal,*tmp_load;//tmp variable for dfs on GPU
-static bool *dfs_flag,*dev_dfs_flag;
+static int *tmp_signal,*tmp_load;//tmp variable for dfs on GPU, those two variable are mainly used in bool2int and int2bool, which are tricky ways to mark 'visited' in dfs
+static bool *dfs_flag,*dev_dfs_flag;//variable to mark whether new dfs visited occur
+
+//CUDA introduction
+/*
+in CUDA:
+__host__ means the function happens on CPU
+__device__ means the function happens on Device(GPU)
+__host__ __device__ means the function can be used both on CPU and GPU(the compi on both CPU and GPU)
+__global__ means it is an global function. global function is where parallel happens.
+	Many threads runs the same code in global function, the way to distinguish different thread is by block and thread
+	blockIdx means block ID, threadIdx means thread ID. In CUDA, many threads form a block, many blocks form a grid, you can find the detail in the ppt I sent you
+	blockDim is the dimension of block. block and thread can be in multiply dimension(see in ppt)
+	to call a global function, you need to specify block number and thread num within each block like:
+		fun<<<blockNum,threadNum>>>(para1,para2...), blockNum and threadNum can be in multiply dimension
+	when you are accessing the data, make sure they do not go beyond boundary(that is why I have lots of "size" variable to check in almost every global function)
+	in global function you can use __device__ function or __host__ __device__ function as long as EVERY VARIABLE IS ON GPU. This is a very strict rule, you cannot access CPU memory on GPU, neither can you access GPU memory on CPU.
+cudaMalloc(&variable_address,size*sizeof(data_type)):
+	The function is used to malloc space for variable on GPU
+cudaMemcpy(&copy_to_address,&copy_from_address,size*sizeof(data_type),tag):
+	The function is copy data from one place to another.
+	tag has: cudaMemcpyHostToDevice,cudaMemcpyDeviceToHost,cudaMemcpyDeviceToDevice,cudaMemcpyHostToHost
+cudaMemset(&variable_address,value,size*sizeof(data_type)):
+	The function is like memset in C++, give the same value to an address of data
+cudaFree(&variable_address):
+	The function is used to free a variable, like delete in C++
+
+I believe those functions above is enough for the project, if you have any question just email me
+*/
 
 //helper function
+/*
+*/
 __host__ __device__ int compi_GPU(int x){
 	if(x%2==0) return x+1;
 	else return x-1;
@@ -70,7 +99,7 @@ __global__ void bool2int_kernel(int *i,bool *b,int size){
 
 //helper function
 
-__device__ bool implies_GPU(int row,int col,int width,double *weights,double threshold){
+__device__ bool implies_GPU(int row,int col,int width,double *weights,double threshold){//implies
 	double rc=weights[ind(row,col,width)];
 	double r_c=weights[ind(compi_GPU(row),col,width)];
 	double rc_=weights[ind(row,compi_GPU(col),width)];
@@ -80,7 +109,7 @@ __device__ bool implies_GPU(int row,int col,int width,double *weights,double thr
 	return rc_<m;
 }
 
-__device__ bool equivalent_GPU(int row,int col,int width,double *weights,double threshold){
+__device__ bool equivalent_GPU(int row,int col,int width,double *weights,double threshold){//equivalent
 	double rc=weights[ind(row,col,width)];
 	double r_c=weights[ind(compi_GPU(row),col,width)];
 	double rc_=weights[ind(row,compi_GPU(col),width)];
@@ -89,7 +118,7 @@ __device__ bool equivalent_GPU(int row,int col,int width,double *weights,double 
 	return rc_==0&&r_c==0;
 }
 
-__device__ void orient_square_GPU(bool *dir,double *weights,double *thresholds,int x,int y,int width){
+__device__ void orient_square_GPU(bool *dir,double *weights,double *thresholds,int x,int y,int width){//orient_square
 	dir[ind(x,y,width)]=false;
 	dir[ind(x,compi_GPU(y),width)]=false;
 	dir[ind(compi_GPU(x),y,width)]=false;
@@ -143,6 +172,7 @@ __global__ void update_weights_kernel(double *weights,bool *observe,int size){
 __global__ void orient_all_kernel(bool *dir,double *weights,double *thresholds,int size){
 	int indexX=blockDim.x*blockIdx.x+threadIdx.x;
 	int indexY=blockDim.y*blockIdx.y+threadIdx.y;
+	//the commented code is the optimization for the triangle problem we discussed. I think the speed is fast for now so I just use the original one
 	/*if(indexX<size){//possible optimazation
 		if(indexY>indexX) orient_square_GPU(dir,weights,thresholds,2*(size/2-1-indexX),2*(size/2-1-indexY),size);
 		else if(indexY<indexX) orient_square_GPU(dir,weights,thresholds,2*indexX,2*indexY,size);
@@ -152,7 +182,7 @@ __global__ void orient_all_kernel(bool *dir,double *weights,double *thresholds,i
 	}
 }
 
-__global__ void dfs_GPU(bool *dir,int *dfs,bool *flag,int size){
+__global__ void dfs_GPU(bool *dir,int *dfs,bool *flag,int size){//dfs
 	int index=blockDim.x*blockIdx.x+threadIdx.x;
 	if(index<size&&dfs[index]==0){
 		for(int j=0;j<size;++j){
@@ -162,6 +192,8 @@ __global__ void dfs_GPU(bool *dir,int *dfs,bool *flag,int size){
 				flag[0]=true;
 			}
 		}
+		//the atomic function in CUDA make sure only one operation is done at one time, like a lock in C++ or Java.
+		//http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
 		atomicMax(dfs+index,1);
 	}
 }
@@ -180,18 +212,9 @@ __global__ void mask_kernel(bool *mask,int *actionlist,int size){
 	}
 }
 
-void Snapshot::copyData(vector<bool> signal,vector<bool> load){
-	for(int i=0;i<size;++i){
-		Gsignal[i]=signal[i];
-		Gload[i]=load[i];
-	}
-	cudaMemcpy(dev_signal,Gsignal,size*sizeof(bool),cudaMemcpyHostToDevice);
-	cudaMemcpy(dev_load,Gload,size*sizeof(bool),cudaMemcpyHostToDevice);
-}
-
 //before invoke this function make sure dev_load and dev_signal have correct data
 //the computed data will be in dev_load
-void Snapshot::propagate_GPU(){
+void Snapshot::propagate_GPU(){//propagate
 	bool2int_kernel<<<(size+255)/256,256>>>(tmp_load,dev_load,size);
 	bool2int_kernel<<<(size+255)/256,256>>>(tmp_signal,dev_signal,size);
 
@@ -218,31 +241,12 @@ void Snapshot::propagate_GPU(){
 	cudaMemcpy(Gload,dev_load,size*sizeof(bool),cudaMemcpyDeviceToHost);
 }
 
-void Snapshot::setSignal(vector<bool> observe){
+void Snapshot::setSignal(vector<bool> observe){//this is where data comes in in every frame
 	for(int i=0;i<observe.size();++i){
 		Gobserve[i]=observe[i];
 	}
 	cudaMemcpy(dev_observe,Gobserve,size*sizeof(bool),cudaMemcpyHostToDevice);
 }
-
-/*vector<vector<double>> Snapshot::update_weights_GPU(vector<vector<double>> weights){
-	dim3 dimGrid((size+15)/16,(size+15)/16);
-	dim3 dimBlock(16,16);
-	for(int i=0;i<size;++i){
-		for(int j=0;j<size;++j){
-			Gweights[i*size+j]=weights[i][j];
-		}
-	}
-	cudaMemcpy(dev_weights,Gweights,size*size*sizeof(double),cudaMemcpyHostToDevice);
-	update_weights_kernel<<<dimGrid,dimBlock>>>(dev_weights,dev_observe,size);
-	cudaMemcpy(Gweights,dev_weights,size*size*sizeof(double),cudaMemcpyDeviceToHost);
-	for(int i=0;i<size;++i){
-		for(int j=0;j<size;++j){
-			weights[i][j]=Gweights[i*size+j];
-		}
-	}
-	return weights;
-}*/
 
 void Snapshot::update_state_GPU(bool mode){//true for decide
 	dim3 dimGrid((size+15)/16,(size+15)/16);
@@ -290,8 +294,36 @@ void Snapshot::halucinate_GPU(vector<int> actions_list){
 	//return self.propagate(mask,self._CURRENT)
 }
 
+void Snapshot::freeData(){//free data in case of memory leak
+	delete[] Gdir;
+	delete[] Gweights;
+	delete[] Gthresholds;
+	delete[] Gobserve;
+	delete[] Gdfs;
+	delete[] Gsignal;
+	delete[] Gload;
+	delete[] tmp_load;
+	delete[] tmp_signal;
+	delete[] dfs_flag;
+	delete[] Gmask;
+	delete[] Gcurrent;
+	cudaFree(dev_dir);
+	cudaFree(dev_thresholds);
+	cudaFree(dev_weights);
+	cudaFree(dev_observe);
+	cudaFree(dev_dfs);
+	cudaFree(dev_signal);
+	cudaFree(dev_load);
+	cudaFree(tmp_signal);
+	cudaFree(tmp_load);
+	cudaFree(dev_dfs_flag);
+	cudaFree(dev_mask);
+	cudaFree(dev_current);
+}
+
 void Snapshot::initData(string name,int size,double threshold,vector<vector<int> > context_key,vector<int> context_value,
-		vector<string> sensors_names,vector<string> evals_names,vector<vector<int>> generalized_actions){
+		vector<string> sensors_names,vector<string> evals_names,vector<vector<int> > generalized_actions){
+	//data init
 	this->name=name;
 	this->size=size;
 	this->threshold=threshold;
@@ -301,6 +333,9 @@ void Snapshot::initData(string name,int size,double threshold,vector<vector<int>
 	srand (time(NULL));
 	for(int i=0;i<size;++i){
 		name_to_num[sensors_names[i]]=i;
+	}
+	if(Gdir!=NULL){
+		freeData();
 	}
 	
 	Gdir=new bool[size*size];
@@ -349,6 +384,7 @@ void Snapshot::initData(string name,int size,double threshold,vector<vector<int>
 	cout<<"succeed"<<endl;
 }
 
+//those three functions down there are get functions for the variable in C++
 vector<bool> Snapshot::getCurrent(){
 	vector<bool> result;
 	for(int i=0;i<size;++i){
@@ -365,8 +401,8 @@ vector<bool> Snapshot::getLoad(){
 	return result;
 }
 
-vector<vector<bool>> Snapshot::getDir(){
-	vector<vector<bool>> result;
+vector<vector<bool> > Snapshot::getDir(){
+	vector<vector<bool> > result;
 	for(int i=0;i<size;++i){
 		vector<bool> tmp;
 		for(int j=0;j<size;++j){

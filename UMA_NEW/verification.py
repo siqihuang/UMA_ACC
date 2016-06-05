@@ -13,8 +13,8 @@ def start_experiment(stdscr):
 
     ### introduce "structure constants"
     DRY_RUN_CYCLES=1
-    X_BOUND=10 #length of the interval environment
-    Y_BOUND=10
+    X_BOUND=50 #length of the interval environment
+    Y_BOUND=16
     THRESHOLD=1./((X_BOUND+1)*(Y_BOUND+1.)) #learning threshold for Sniffy
 
     ### open a new experiment
@@ -155,8 +155,13 @@ def start_experiment(stdscr):
         curses.doupdate()
     #print SNIFFY._SIZE
     
+    #------------------------THIS IS THE DATA INIT--------------------------------------#
+    #The tmp is a list for sensors names, every time you add some new sensors you have to recall the initData function, with new data given
+    #And currently the method for initData is DELETE ALL OLD DATA, but in the future if you want to keep some old one I can adjust then
+    #Function detail is in interface.txt
     tmp=[sen._NAME for sen in SNIFFY._SENSORS]
     acc.initData(SNIFFY._NAME,SNIFFY._SIZE,THRESHOLD,SNIFFY._CONTEXT.keys(),SNIFFY._CONTEXT.values(),tmp,SNIFFY._EVALS,SNIFFY._GENERALIZED_ACTIONS)
+    #------------------------THIS IS THE DATA INIT--------------------------------------#
     
 
     # SETTING UP DRY RUN
@@ -228,7 +233,6 @@ def start_experiment(stdscr):
         print_state(count,message)
         message='RUNNING: '+EX.tick('decide','to_playground')
         count+=1
-    #print SNIFFY._SIZE
     
 curses.wrapper(start_experiment)
 exit(0)

@@ -1,0 +1,17 @@
+void initData(string name,int size,double threshold, vector<vector<int> > context_key,vector<int> context_value,vector<string> sensors_names,vector<string> evals_names,vector<vector<int> > generalized_actions);
+	name:agent name
+	size:agent size(sensor number)
+	threshold:original threshold
+	context_key: context value key
+	context_value: context value value
+	sensors_names: sensors name, see in tmp variable in verification.py
+	evals_names: evals
+	generalized_actions: generalized_actions
+
+void setSignal(vector<bool> observe);
+	observe: new observe signal in the new frame
+
+void decide(string mode,vector<int> param1,string param2);
+	mode: "decide" or "execute"
+	param1: list variable or []
+	param2: string variable or ""
