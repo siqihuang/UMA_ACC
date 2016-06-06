@@ -3,7 +3,7 @@ import numpy as np
 import curses
 
 
-from snapshot_platform_new import *
+from snapshot_platform import *
 
 def start_experiment(stdscr):
     ### log and output files

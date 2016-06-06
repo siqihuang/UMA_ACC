@@ -3,6 +3,8 @@
 
 #include "Snapshot.h"
 #include <string>
+#include <cstdlib>
+#include <cstdio>
 
 class Agent:public Snapshot{
 public:

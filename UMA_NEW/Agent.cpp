@@ -17,7 +17,7 @@ void Agent::decide(string mode,vector<int> param1,string param2){//the decide fu
 			decision=translate(param1);
 			message="Executing [";
 			for(int i=0;i<param1.size();++i){
-				message+=(" "+to_string(param1[i]));
+                                message+=(" "+std::to_string(param1[i]));
 			}
 			message+="]";
 		}
@@ -74,7 +74,6 @@ bool Agent::checkParam(vector<int> param){
 	for(int i=0;i<generalized_actions.size();++i){
 		if(param==generalized_actions[i]) return true;	
 	}
-	exit(0);
 	return false;
 }
 
